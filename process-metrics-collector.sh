@@ -21,13 +21,27 @@ fi
 
 current_time=$(date +"%Y_%m_%d_%H%M")
 dir_name="data/${pid}-${current_time}"
+csv_filename="${dir_name}/metrics.csv"
 
 # create data directory
 mkdir -p $dir_name
 
-csv_filename="${dir_name}/collected_metrics.csv"
 
+
+
+# Read collected metrices from the CSV file and plot graphs
+#
+# This function will end script execution.
+#
+# This function is to be called after an interrupt like SIGINT or SIGKILL
+# is received.
+#
 function plotGraph() {
+
+  # bring cursor to next line after interrupt
+  echo
+
+  # plot graphs if there is a data file
   if [ -f $csv_filename ]; then
     echo "Plotting graphs..."
     gnuplot <<- EOF
@@ -99,6 +113,8 @@ EOF
 
 # add SIGINT & SIGTERM trap
 trap "plotGraph" SIGINT SIGTERM SIGKILL
+
+
 
 echo "Writing data to CSV file $csv_filename..."
 touch $csv_filename
