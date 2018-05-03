@@ -20,16 +20,19 @@ if [ $pid_exist != 0 ]; then
 fi
 
 current_time=$(date +"%Y_%m_%d_%H%M")
-csv_filename="${pid}-${current_time}.csv"
-png_filename="${pid}-${current_time}.png"
+dir_name="data/${pid}-${current_time}"
+
+# create data directory
+mkdir -p $dir_name
+
+csv_filename="${dir_name}/collected_metrics.csv"
 
 function plotGraph() {
   if [ -f $csv_filename ]; then
-    echo "Plotting graph to $png_filename..."
+    echo "Plotting graphs..."
     gnuplot <<- EOF
       # Output to png with a font size of 10, using pngcairo for anti-aliasing
       set term pngcairo size 1024,800 noenhanced font "Helvetica,10"
-      set output "$png_filename"
 
       # Set border color around the graph
       set border ls 50 lt rgb "#939393"
@@ -53,9 +56,6 @@ function plotGraph() {
       # Set separator to comma
       set datafile separator ","
 
-      # Set graph title
-      set title "Metrics for PID $pid"
-
       # Move legend to the bottom
       set key bmargin center box lt rgb "#d8d8d8" horizontal
 
@@ -66,10 +66,30 @@ function plotGraph() {
       # "lw 2" - line width
       # "lt rgb " - line style color
       # "t " - legend labels
+      #
+      # CPU and memory usage
+      set output "${dir_name}/cpu-mem-usage.png"
+      set title "CPU and Memory Usage for Proces ID $pid"
       plot "$csv_filename" using 2:xticlabels(1) with lines smooth unique lw 2 lt rgb "#4848d6" t "CPU Usage %",\
-       "$csv_filename" using 3:xticlabels(1) with lines smooth unique lw 2 lt rgb "#b40000" t "Memory Usage %",\
-       "$csv_filename" using 4:xticlabels(1) with lines smooth unique lw 2 lt rgb "#ed8004" t "TCP Connection Count",\
-       "$csv_filename" using 5:xticlabels(1) with lines smooth unique lw 2 lt rgb "#48d65b" t "Thread Count"
+       "$csv_filename" using 3:xticlabels(1) with lines smooth unique lw 2 lt rgb "#b40000" t "Memory Usage %"
+
+      # TCP count
+      set output "${dir_name}/tcp-count.png"
+      set title "TCP Connections Count for Proces ID $pid"
+      plot "$csv_filename" using 4:xticlabels(1) with lines smooth unique lw 2 lt rgb "#ed8004" t "TCP Connection Count"
+
+      # Thread count
+      set output "${dir_name}/thread-count.png"
+      set title "Thread Count for Proces ID $pid"
+      plot "$csv_filename" using 5:xticlabels(1) with lines smooth unique lw 2 lt rgb "#48d65b" t "Thread Count"
+
+       # All together
+       set output "${dir_name}/all-metrices.png"
+       set title "All Metrics for Proces ID $pid"
+       plot "$csv_filename" using 2:xticlabels(1) with lines smooth unique lw 2 lt rgb "#4848d6" t "CPU Usage %",\
+        "$csv_filename" using 3:xticlabels(1) with lines smooth unique lw 2 lt rgb "#b40000" t "Memory Usage %", \
+        "$csv_filename" using 4:xticlabels(1) with lines smooth unique lw 2 lt rgb "#ed8004" t "TCP Connection Count", \
+        "$csv_filename" using 5:xticlabels(1) with lines smooth unique lw 2 lt rgb "#48d65b" t "Thread Count"
 EOF
   fi
 
