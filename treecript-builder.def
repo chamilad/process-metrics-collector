@@ -1,0 +1,65 @@
+Bootstrap: docker
+From: quay.io/pypa/manylinux_2_28_x86_64
+
+# Build-time variables, equivalent to the Dockerfile's ARG. Override at
+# build time with --build-arg NAME=value (see the build command below).
+%arguments
+    PYVER=3.13.9
+    TREECRIPT_GIT_URL=https://github.com/inab/treecript.git
+    TREECRIPT_REF=exec
+
+# Copies constraints-3.12.txt from the build context (the directory you
+# run `singularity build` from) into the image, same as the Dockerfile's
+# COPY instruction. This file must exist alongside this .def file.
+%files
+    constraints-3.12.txt /src/constraints-3.12.txt
+
+%post
+    set -e
+
+    # Build-time dependencies for compiling Python (openssl-devel is
+    # required, otherwise Python ends up without the ssl module and pip
+    # cannot reach PyPI)
+    dnf install -y \
+        openssl-devel bzip2-devel libffi-devel zlib-devel xz-devel \
+        ncurses-devel readline-devel sqlite-devel tk-devel gdbm-devel
+    dnf clean all
+
+    PYSHARED_PREFIX=/opt/python-shared
+    mkdir -p /src
+
+    # Compile Python with --enable-shared, required by PyInstaller (the
+    # manylinux-provided Pythons under /opt/python/cpXXX-cpXXX lack a
+    # shared libpython)
+    curl -O https://www.python.org/ftp/python/{{ PYVER }}/Python-{{ PYVER }}.tgz
+    tar xzf Python-{{ PYVER }}.tgz
+    cd Python-{{ PYVER }}
+    ./configure --enable-shared --prefix="${PYSHARED_PREFIX}" --with-openssl=/usr
+    make -j"$(nproc)"
+    make altinstall
+    cd ..
+    rm -rf Python-{{ PYVER }} Python-{{ PYVER }}.tgz
+
+    # IMPORTANT: unlike Docker's ENV, Apptainer's %environment section only
+    # applies when the final container is *run* (%runscript, singularity
+    # run/exec) -- it is NOT in effect during %post (the build itself). So
+    # the freshly-compiled Python can't find its own shared libpython here
+    # unless we export this explicitly for the rest of the build.
+    export LD_LIBRARY_PATH="${PYSHARED_PREFIX}/lib"
+
+    # Virtual environment + treecript + pyinstaller, same as the Dockerfile
+    "${PYSHARED_PREFIX}/bin/python3.13" -m venv /opt/venv
+    /opt/venv/bin/pip install --upgrade pip wheel
+    /opt/venv/bin/pip install -c /src/constraints-3.12.txt \
+        "treecript[analytics,docker] @ git+{{ TREECRIPT_GIT_URL }}@{{ TREECRIPT_REF }}"
+    /opt/venv/bin/pip install pyinstaller
+
+%environment
+    export LD_LIBRARY_PATH=/opt/python-shared/lib
+    export PATH=/opt/venv/bin:$PATH
+
+# Equivalent to the Dockerfile's CMD: this is what runs by default when
+# the resulting .sif is executed with `singularity run`.
+%runscript
+    exec /opt/venv/bin/pyinstaller -F -n execution-metrics-collector \
+        /opt/venv/bin/execution-metrics-collector
