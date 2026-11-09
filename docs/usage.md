@@ -6,7 +6,9 @@ Run the examples from the repository root.
 
 ## Quick Start (Singularity/Apptainer)
 
-At the moment, it is limited to metrics gathering
+This example uses the [collection runtime image](installation.md#option-1-singularity),
+not the [PyInstaller builder image](standalone-binary.md#build-with-apptainer-or-singularity).
+The runtime image is currently limited to metrics gathering.
 
 ```bash
 # 1. Collect metrics for a command in background

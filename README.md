@@ -11,8 +11,8 @@ The full list is in the [documentation index](docs/README.md).
 
 - [Installation](docs/installation.md): Singularity/Apptainer, pip, and Conda.
 - [Standalone collector binary](docs/standalone-binary.md): download the existing
-  Docker-built binary, build with Docker or Apptainer/Singularity, and check
-  compatibility with HPC systems.
+  Docker-built binary, or use a builder image to create one with PyInstaller
+  and check compatibility with HPC systems.
 - [Usage and CPU datasets](docs/usage.md): collect, plot, find CPU TDP, and
   estimate energy consumption.
 - [Metrics and output files](docs/metrics.md): output files and column reference.
@@ -33,6 +33,10 @@ execution-metrics-collector ~/my_metrics my_command --arg1 --arg2
 For container-based collection and subsequent analysis, see the
 [usage guide](docs/usage.md). The standalone binary only provides the collector;
 analysis requires a separate Python installation.
+
+The Apptainer/Singularity [builder SIF](docs/standalone-binary.md#build-with-apptainer-or-singularity)
+is an intermediate tool for producing that binary. It is not the separate
+[collection runtime image](docs/installation.md#option-1-singularity).
 
 ## Repository
 

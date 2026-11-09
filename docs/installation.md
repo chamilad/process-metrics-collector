@@ -52,6 +52,10 @@ python3 --version
 
 ### Option 1: Singularity
 
+This option uses a **runtime SIF** to collect metrics inside a container. It
+does not create a standalone executable. To build the PyInstaller binary, use
+the separate [builder SIF workflow](standalone-binary.md#build-with-apptainer-or-singularity).
+
 #### Alternative A: Fetch a pre-built image (only for metrics gathering)
 
 Pre-build singularity images are listed at https://github.com/inab/treecript/pkgs/container/treecript .

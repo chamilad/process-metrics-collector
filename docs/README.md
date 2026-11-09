@@ -6,8 +6,8 @@
 
 | Page | Read it to... |
 |------|---------------|
-| [Installation](installation.md) | Install `treecript` with Singularity/Apptainer, pip (venv) or Conda. |
-| [Standalone collector binary](standalone-binary.md) | Run `execution-metrics-collector` without Python: download, build with Docker or Apptainer/Singularity, check HPC compatibility. |
+| [Installation](installation.md) | Install `treecript` with a collection runtime image, pip (venv) or Conda. |
+| [Standalone collector binary](standalone-binary.md) | Download the binary or use an Apptainer/Singularity or Docker builder image to create it with PyInstaller; check HPC compatibility. |
 | [Usage and CPU datasets](usage.md) | Collect metrics, plot charts, find a CPU TDP and estimate energy consumption. |
 
 ## Reference
