@@ -8,6 +8,15 @@ bundles the Python interpreter and application dependencies into one executable.
 It still needs a compatible Linux system, architecture and glibc; see
 [compatibility](#checking-glibc-compatibility-before-deploying).
 
+## What the images and binary are for
+
+| Artifact | Purpose |
+| --- | --- |
+| `treecript-builder.def` | Recipe for an image containing Python, treecript and PyInstaller. |
+| `treecript-builder.sif` | Intermediate builder image. Running it invokes PyInstaller to produce the binary; it is not the binary itself. |
+| `dist/execution-metrics-collector` | Generated standalone collector, copied to and run on a compatible target without Apptainer. |
+| `treecript-exec.sif` | Separate [runtime image](installation.md#option-1-singularity) for collecting metrics inside Singularity/Apptainer; it does not build the binary. |
+
 #### Alternative A: Use a pre-built binary
 
 A Docker-built binary of `execution-metrics-collector` is published as the OCI
@@ -113,37 +122,67 @@ its dependencies, not merely changing the image name.
 
 ##### Build with Apptainer or Singularity
 
-The [builder definition](../treecript-builder.def) builds a **builder image**;
-it is not the [runtime image](../installation/Singularity.def). Its `Bootstrap:
-docker` line fetches an OCI base image; a Docker daemon is not required.
+The [builder definition](../treecript-builder.def) builds a **builder image**.
+Running that image invokes PyInstaller and generates the standalone collector.
+The builder is not the [collection runtime image](../installation/Singularity.def).
+Its `Bootstrap: docker` line fetches an OCI base image; a Docker daemon is not required.
 Run the following from the repository root on Linux x86-64, with Apptainer
 installed, network access, and sufficient disk space. Building from a definition
 file requires root, a working fakeroot configuration, or another supported
 build service; check the cluster's policy. Singularity can be used instead by
 replacing `apptainer` with `singularity` if its version supports these options.
 
-The definition expects `constraints-3.12.txt` in the build context, not in
-`installation/`. Stage a copy without changing the source files:
+**1. Build the intermediate SIF.** The definition expects
+`constraints-3.12.txt` in the build context, not in `installation/`, so stage
+a copy first. If you already have the desired `treecript-builder.sif`, skip
+this step and use it in step 2.
 
 ```bash
-mkdir -p build/pyinstaller-context build/pyinstaller-output
+mkdir -p build/pyinstaller-context
 cp treecript-builder.def build/pyinstaller-context/
 cp installation/constraints-3.12.txt build/pyinstaller-context/
 (
   cd build/pyinstaller-context
-  apptainer build --fakeroot --build-arg TREECRIPT_REF=exec \
-    treecript-builder.sif treecript-builder.def
+  apptainer build --fakeroot \
+    --build-arg PYVER=3.13.9 \
+    --build-arg TREECRIPT_GIT_URL=https://github.com/inab/treecript.git \
+    --build-arg TREECRIPT_REF=exec \
+    ../../treecript-builder.sif treecript-builder.def
 )
-
-# The runscript writes build/, dist/ and a .spec file to /work.
-apptainer run --bind "$PWD/build/pyinstaller-output:/work" --pwd /work \
-  build/pyinstaller-context/treecript-builder.sif
-
-build/pyinstaller-output/dist/execution-metrics-collector
 ```
 
-The final command should print usage and exit with status 1 because no arguments
-were provided; also test a real workload on the target.
+**2. Run the SIF to create the binary.** PyInstaller writes `dist/`, `build/`
+and a `.spec` file relative to its working directory. Bind a writable work
+directory at `/src`, make it the working directory, and bind the output
+directory at `/src/dist`:
+
+```bash
+mkdir -p dist build/pyinstaller-work/dist
+apptainer run \
+  --bind "$PWD/build/pyinstaller-work:/src" \
+  --bind "$PWD/dist:/src/dist" \
+  --pwd /src treecript-builder.sif
+
+ls -lh dist/execution-metrics-collector
+```
+
+Binding only `"$PWD/dist:/src/dist"` works if PyInstaller's working directory
+is already writable `/src`. The explicit work-directory bind above avoids
+depending on the caller's current directory or site-specific automatic binds.
+
+**3. Check and test the binary.** The following inspects only the outer
+PyInstaller bootloader; see [glibc compatibility](#checking-glibc-compatibility-before-deploying)
+for the limitations and target checks.
+
+```bash
+objdump -T dist/execution-metrics-collector | grep GLIBC_ \
+  | sed 's/.*GLIBC_\([0-9.]*\).*/\1/' | sort -V | tail -1
+./dist/execution-metrics-collector
+```
+
+The last command prints usage and exits with status 1 because no arguments
+were provided. Test a real workload on the target as well. Only the binary,
+not the builder SIF, is required on the target.
 The recipe installs the **remote** `TREECRIPT_REF` (default `exec`), not
 uncommitted local changes. Override `TREECRIPT_GIT_URL` and `TREECRIPT_REF`
 with `--build-arg` to select a repository and preferably an immutable commit.
@@ -230,7 +269,7 @@ The resulting `dist/execution-metrics-collector` is a single, self-contained exe
 ##### Checking glibc compatibility before deploying
 
 Check the executable's architecture and the glibc symbols required by its
-outer PyInstaller bootloader (adjust the path for the Apptainer output):
+outer PyInstaller bootloader:
 
 ```bash
 file dist/execution-metrics-collector
@@ -264,7 +303,7 @@ compatibility before copying it to the cluster. For example, from the repository
 root after the Apptainer build:
 
 ```bash
-scp build/pyinstaller-output/dist/execution-metrics-collector your-user@your-hpc-login-node:~/
+scp dist/execution-metrics-collector your-user@your-hpc-login-node:~/
 ssh your-user@your-hpc-login-node
 ```
 
