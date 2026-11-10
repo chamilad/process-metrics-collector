@@ -33,7 +33,10 @@ if TYPE_CHECKING:
         Optional,
     )
 
-    from matplotlib.typing import RcKeyType
+    try:
+        from matplotlib.typing import RcKeyType  # type: ignore[attr-defined]
+    except ImportError:
+        RcKeyType = str  # type: ignore[misc]
 
 import matplotlib
 from matplotlib.colors import TABLEAU_COLORS

@@ -36,7 +36,11 @@ if TYPE_CHECKING:
         Union,
     )
 
-    from matplotlib.typing import RcKeyType
+    try:
+        from matplotlib.typing import RcKeyType  # type: ignore[attr-defined]
+    except ImportError:
+        RcKeyType = str  # type: ignore[misc]
+
 
 import pandas as pd
 import networkx as nx

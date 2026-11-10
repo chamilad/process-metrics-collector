@@ -265,7 +265,7 @@ def create_property_value(
 
 def create_action(
     wrroc: "rocrate.rocrate.ROCrate",
-    pid_row: "pandas.core.series.Series",
+    pid_row: "pandas.core.series.Series[Any]",
     skippable_metric: "Set[str]" = TREECRIPT_SKIPPABLE,
 ) -> "rocrate.model.contextentity.ContextEntity":
     start_action = (
