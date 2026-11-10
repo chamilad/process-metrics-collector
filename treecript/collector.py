@@ -210,7 +210,24 @@ def execution_metrics_collector(
     match_docker: "bool" = False,
 ) -> "pathlib.Path":
     # See https://stackoverflow.com/a/4791612
-    pop = subprocess.Popen(cmdline, preexec_fn=os.setsid)  # noqa: PLW1509
+
+    # When execution-metrics-collector is run from a generated pyinstaller
+    # there can be problems related to libraries
+    the_env: "Optional[Mapping[str, str]]" = None
+    if "_PYI_ARCHIVE_FILE" in os.environ:
+        the_env = dict(os.environ)
+        if "LD_LIBRARY_PATH_ORIG" in the_env:
+            the_env["LD_LIBRARY_PATH"] = the_env.pop("LD_LIBRARY_PATH_ORIG")
+        for env_name in (
+            "_PYI_ARCHIVE_FILE",
+            "_PYI_PARENT_PROCESS_LEVEL",
+            "_PYI_LINUX_PROCESS_NAME",
+            "_PYI_APPLICATION_HOME_DIR",
+        ):
+            if env_name in the_env:
+                del the_env[env_name]
+
+    pop = subprocess.Popen(cmdline, preexec_fn=os.setsid, env=the_env)  # noqa: PLW1509
     # Just to be sure every descendant disappears
     atexit.register(
         os.killpg, os.getpgid(pop.pid), getattr(signal, "SIGKILL", signal.SIGTERM)
