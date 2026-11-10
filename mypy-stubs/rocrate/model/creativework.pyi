@@ -1,0 +1,3 @@
+from .entity import Entity as Entity
+
+class CreativeWork(Entity): ...

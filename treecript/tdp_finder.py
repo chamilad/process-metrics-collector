@@ -130,6 +130,10 @@ def _tdp_finder_from_model_name(
     return (model_name, matches[0][0], float(matches[0][1]), processors_file)
 
 
+class TDPFinderException(Exception):
+    pass
+
+
 def tdp_finder_from_model_name(
     model_name: "str", processors_files: "Sequence[pathlib.Path]"
 ) -> "Tuple[str, str, float, pathlib.Path]":
@@ -162,7 +166,9 @@ def tdp_finder_from_model_name(
         for error in (*errors, *notfound):
             logger.error(error)
 
-    raise Exception()
+    raise TDPFinderException(
+        f"Unmatched {model_name} over datasheet processor files (see logs for detailed messages)"
+    )
 
 
 def tdp_finder_from_cpuinfo(
@@ -214,22 +220,28 @@ def tdp_finder_from_cpuinfo(
         for error in errors:
             logger.error(error)
 
-        raise Exception()
+        raise TDPFinderException()
 
     return found_tdp
+
+
+class TDPFinderPathException(TDPFinderException):
+    pass
 
 
 def tdp_finder_from_series(
     series_dir: "pathlib.Path", processors_files: "Sequence[pathlib.Path]"
 ) -> "Sequence[Tuple[str, str, float, pathlib.Path]]":
     if not series_dir.is_dir():
-        logger.error(f"Path {series_dir.as_posix()} is not a directory")
-        raise Exception()
+        errmsg = f"Path {series_dir.as_posix()} is not a directory"
+        logger.error(errmsg)
+        raise TDPFinderPathException(errmsg)
 
     cpu_details_filename = series_dir / CPU_DETAILS_FILENAME
     if not cpu_details_filename.is_file():
-        logger.error(f"Path {cpu_details_filename.as_posix()} is not a filename")
-        raise Exception()
+        errmsg = f"Path {cpu_details_filename.as_posix()} is not a filename"
+        logger.error(errmsg)
+        raise TDPFinderPathException(errmsg)
 
     with cpu_details_filename.open(mode="r", encoding="utf-8") as cF:
         cpu_details = json.load(cF)
@@ -241,8 +253,9 @@ def tdp_finder_from_raw(
     cpuinfo_file: "pathlib.Path", processors_files: "Sequence[pathlib.Path]"
 ) -> "Sequence[Tuple[str, str, float, pathlib.Path]]":
     if not cpuinfo_file.is_file():
-        logger.error(f"Path {cpuinfo_file.as_posix()} is not a file")
-        raise Exception()
+        errmsg = f"Path {cpuinfo_file.as_posix()} is not a file"
+        logger.error(errmsg)
+        raise TDPFinderPathException(errmsg)
 
     cpu_hash, processor2corecpu = parse_cpuinfo(cpuinfo_file.as_posix())
 

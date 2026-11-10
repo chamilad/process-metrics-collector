@@ -29,11 +29,14 @@ from typing import (
 
 if TYPE_CHECKING:
     from typing import (
+        Any,
         MutableSequence,
         Optional,
         Sequence,
         Union,
     )
+
+    from matplotlib.typing import RcKeyType
 
 import pandas as pd
 import networkx as nx
@@ -65,7 +68,7 @@ def draw_tree(
     dpi: "int" = 300,
     font_size: "float" = 10,
 ) -> "None":
-    rc_context = {
+    rc_context: "dict[RcKeyType, Any]" = {
         "font.size": font_size * 1.7,  # controls default text sizes
         "axes.titlesize": font_size * 1.5,  # fontsize of the axes title
         "axes.labelsize": font_size * 1.5,  # fontsize of the x and y labels
@@ -144,7 +147,7 @@ def draw_spiral(
     dpi: "int" = 300,
     font_size: "float" = 10,
 ) -> "None":
-    rc_context = {
+    rc_context: "dict[RcKeyType, Any]" = {
         "font.size": font_size * 1.7,  # controls default text sizes
         "axes.titlesize": font_size * 1.5,  # fontsize of the axes title
         "axes.labelsize": font_size * 1.5,  # fontsize of the x and y labels
@@ -218,7 +221,7 @@ def draw_consumptions_chart(
     # A3 in inches
     # fig = plt.figure(figsize=(16.6, 11.7), dpi=300, tight_layout=True)
 
-    rc_context = {
+    rc_context: "dict[RcKeyType, Any]" = {
         "font.size": font_size * 1.7,  # controls default text sizes
         "axes.titlesize": font_size * 1.5,  # fontsize of the axes title
         "axes.labelsize": font_size * 1.5,  # fontsize of the x and y labels
@@ -324,7 +327,7 @@ def draw_lollipop_chart(
     last_sample_color: "str" = "lightgreen",
     duration_color: "str" = "grey",
 ) -> "None":
-    rc_context = {
+    rc_context: "dict[RcKeyType, Any]" = {
         "font.size": font_size * 1.7,  # controls default text sizes
         "axes.titlesize": font_size * 1.5,  # fontsize of the axes title
         "axes.labelsize": font_size * 1.5,  # fontsize of the x and y labels
@@ -381,7 +384,7 @@ def draw_lollipop_chart(
         )
 
         ax.xaxis.set_major_formatter(
-            lambda x, pos: timedelta_noday_formatter(pd.Timedelta(int(round(x))))
+            lambda x, pos: timedelta_noday_formatter(pd.Timedelta(round(x)))
         )
 
         labels = []
@@ -463,7 +466,7 @@ def metrics_aggregator(
         series_dir, group_by_process_name=group_by_process_name
     )
 
-    sampling_period_milliseconds = int(round(sampling_period_seconds * 1000.0))
+    sampling_period_milliseconds = round(sampling_period_seconds * 1000.0)
     sampling_period_td = pd.Timedelta(sampling_period_milliseconds, "ms")
 
     # Compute the graph

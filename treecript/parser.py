@@ -110,34 +110,42 @@ def process_command(command: "Sequence[str]") -> "str":
     return retlabel
 
 
+class MetricsParserException(Exception):
+    pass
+
+
 def metrics_parser(
     series_dir: "pathlib.Path",
     group_by_process_name: "Optional[str]" = None,
 ) -> "Tuple[float, pd.DataFrame, int, float]":
     if not series_dir.is_dir():
-        logger.error(f"Path {series_dir.as_posix()} is not a directory")
-        raise Exception()
+        errmsg = f"Path {series_dir.as_posix()} is not a directory"
+        logger.error(errmsg)
+        raise MetricsParserException(errmsg)
 
     reference_pid_filename = series_dir / REFERENCE_PID_FILENAME
     if not reference_pid_filename.is_file():
-        logger.error(f"Path {reference_pid_filename.as_posix()} is not a filename")
-        raise Exception()
+        errmsg = f"Path {reference_pid_filename.as_posix()} is not a filename"
+        logger.error(errmsg)
+        raise MetricsParserException(errmsg)
 
     with reference_pid_filename.open(mode="r", encoding="utf-8") as rF:
         reference_pid = float(rF.readline())
 
     sampling_period_filename = series_dir / SAMPLING_PERIOD_FILENAME
     if not sampling_period_filename.is_file():
-        logger.error(f"Path {sampling_period_filename.as_posix()} is not a filename")
-        raise Exception()
+        errmsg = f"Path {sampling_period_filename.as_posix()} is not a filename"
+        logger.error(errmsg)
+        raise MetricsParserException(errmsg)
 
     with sampling_period_filename.open(mode="r", encoding="utf-8") as sF:
         sampling_period_seconds = float(sF.readline())
 
     cpu_details_filename = series_dir / CPU_DETAILS_FILENAME
     if not cpu_details_filename.is_file():
-        logger.error(f"Path {cpu_details_filename.as_posix()} is not a filename")
-        raise Exception()
+        errmsg = f"Path {cpu_details_filename.as_posix()} is not a filename"
+        logger.error(errmsg)
+        raise MetricsParserException(errmsg)
 
     with cpu_details_filename.open(mode="r", encoding="utf-8") as cF:
         cpu_details = json.load(cF)
@@ -153,8 +161,9 @@ def metrics_parser(
 
     pids_filename = series_dir / PIDS_FILENAME
     if not pids_filename.is_file():
-        logger.error(f"Path {pids_filename.as_posix()} is not a filename")
-        raise Exception()
+        errmsg = f"Path {pids_filename.as_posix()} is not a filename"
+        logger.error(errmsg)
+        raise MetricsParserException(errmsg)
 
     # Reading all the pids
     pids = pd.read_table(

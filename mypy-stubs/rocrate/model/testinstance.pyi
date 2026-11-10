@@ -1,0 +1,26 @@
+from typing import (
+    Optional,
+)
+
+from .contextentity import ContextEntity as ContextEntity
+from .entity import EntityRef
+
+class TestInstance(ContextEntity):
+    @property
+    def name(self) -> Optional[str]: ...
+    @name.setter
+    def name(self, name: str) -> None: ...
+    @property
+    def resource(self) -> Optional[str | EntityRef]: ...
+    @resource.setter
+    def resource(self, url: str | EntityRef) -> None: ...
+    @property
+    def runsOn(self) -> Optional[str | EntityRef]: ...
+    @runsOn.setter
+    def runsOn(self, url: str | EntityRef) -> None: ...
+    @property
+    def url(self) -> Optional[str | EntityRef]: ...
+    @url.setter
+    def url(self, url: str | EntityRef) -> None: ...
+
+    service = runsOn

@@ -28,9 +28,12 @@ from typing import (
 
 if TYPE_CHECKING:
     from typing import (
+        Any,
         List,
         Optional,
     )
+
+    from matplotlib.typing import RcKeyType
 
 import matplotlib
 from matplotlib.colors import TABLEAU_COLORS
@@ -72,7 +75,7 @@ def cpu_and_memory_graph(
     dpi: "int" = 300,
     font_size: "float" = 10,
 ) -> "None":
-    rc_context = {
+    rc_context: "dict[RcKeyType, Any]" = {
         "font.size": font_size * 1.7,  # controls default text sizes
         "axes.titlesize": font_size * 1.5,  # fontsize of the axes title
         "axes.labelsize": font_size * 1.5,  # fontsize of the x and y labels
@@ -146,7 +149,7 @@ def cpu_and_io_graph(
     dpi: "int" = 300,
     font_size: "float" = 10,
 ) -> "None":
-    rc_context = {
+    rc_context: "dict[RcKeyType, Any]" = {
         "font.size": font_size * 1.7,  # controls default text sizes
         "axes.titlesize": font_size * 1.5,  # fontsize of the axes title
         "axes.labelsize": font_size * 1.5,  # fontsize of the x and y labels

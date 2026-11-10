@@ -1,0 +1,119 @@
+name: Parameterised pre-commit
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        required: true
+        type: string
+        description: The platform (ubuntu-latest, ubuntu-24.04, ...)
+      matrix:
+        required: true
+        type: string
+        description: The JSONified representation of the matrix. It should contain "python-versions"
+
+jobs:
+  pre-commit:
+    runs-on: ${{ inputs.platform }}
+    strategy:
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    name: Pre-commit python ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 100
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            installation/requirements.txt
+            installation/mypy-requirements.txt
+            installation/dev-requirements.txt
+          architecture: x64
+      - name: 'Install requirements (standard or constraints ${{ matrix.python-version }})'
+        run: |
+          pip install --upgrade pip wheel
+          constraints_file="installation/constraints-${{ matrix.python-version }}.txt"
+          regen_constraints=
+          if [ -f "$constraints_file" ] ; then
+            at="$(git --no-pager log -p -1 "--format=tformat:%at" --no-patch -- "$constraints_file")"
+            dat="$(git --no-pager log -p -1 "--format=tformat:%at" --no-patch -- "installation/requirements.txt")"
+            if [ "$at" -lt "$dat" ] ; then
+              regen_constraints=true
+            fi
+          else
+            regen_constraints=true
+          fi
+          if [ -n "$regen_constraints" ] ; then
+            pip install -r installation/requirements.txt
+            pip freeze > "$constraints_file"
+            grep -vF git+ "$constraints_file" > "$constraints_file"-relaxed
+          else
+            grep -vF git+ "$constraints_file" > "$constraints_file"-relaxed
+            pip install -r installation/requirements.txt -c "$constraints_file"-relaxed
+          fi
+      - name: 'Install development requirements'
+        run: |
+          pip install -r installation/dev-requirements.txt -r installation/mypy-requirements.txt -c installation/constraints-${{ matrix.python-version }}.txt-relaxed
+      - name: MyPy cache
+        uses: actions/cache@v6
+        with:
+          path: '.mypy_cache/[0-9]*'
+          key: mypy-${{ matrix.python-version }}
+      - name: 'pre-commit'
+        uses: pre-commit/action@v3.0.1
+#        if: ${{ matrix.python-version != '3.6' }}
+        with:
+          extra_args: --all -c .pre-commit-config.yaml
+ #     - name: 'pre-commit (custom Python ${{ matrix.python-version }})'
+ #       uses: pre-commit/action@v3.0.1
+ #       if: ${{ matrix.python-version == '3.6' }}
+ #       with:
+ #         extra_args: --all -c .pre-commit-config-gh-${{ matrix.python-version }}.yaml
+      - name: CPU database cache restore
+        id: cache-cpu-databases-restore
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            cpumark_table.csv
+            cpu-spec-dataset
+          key: cpu_databases
+      - name: CPU database population
+        if: steps.cache-cpu-databases-restore.outputs.cache-hit != 'true'
+        run: |
+          python -m treecript.tdp_sources cpumark_table.tsv
+          git clone https://github.com/JosuaCarl/cpu-spec-dataset
+      - name: CPU database cache save
+        if: steps.cache-cpu-databases-restore.outputs.cache-hit != 'true'
+        id: cache-cpu-databases-save
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            cpumark_table.csv
+            cpu-spec-dataset
+          key: ${{ steps.cache-cpu-databases-restore.outputs.cache-primary-key }}
+      - name: 'pytest + coverage (${{ matrix.python-version }})'
+        run: |
+          CACHED_CPU_SPEC_DATASET=${PWD}/cpu-spec-dataset CACHED_CPUMARK_DATASET=${PWD}/cpumark_table.tsv pytest --cov=treecript
+      - name: Get transitive dependencies licences
+        id: license_check_print_report
+#        continue-on-error: true
+        uses: pilosus/action-pip-license-checker@v3.1.0
+        with:
+          requirements: installation/constraints-${{ matrix.python-version }}.txt
+#      - name: Check transitive dependencies licences
+#        id: license_check_report
+#        uses: pilosus/action-pip-license-checker@v3.1.0
+#        with:
+#          requirements: installation/constraints-${{ matrix.python-version }}.txt
+#          fail: 'StrongCopyleft'
+#          exclude: '(?i)^(pylint|dulwich|docutils).*'
+      - name: Print licences report
+        if: ${{ always() }}
+        run: echo "${{ steps.license_check_print_report.outputs.report }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pre-commit-${{ matrix.python-version }}
+          retention-days: 2
+          path: installation/constraints-${{ matrix.python-version }}.txt

@@ -1,0 +1,84 @@
+name: Parameterised pip-audit
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        required: true
+        type: string
+        description: The platform (ubuntu-latest, ubuntu-24.04, ...)
+      matrix:
+        required: true
+        type: string
+        description: The JSONified representation of the matrix. It should contain "python-versions"
+
+jobs:
+  pip-audit:
+    runs-on: ${{ inputs.platform }}
+    strategy:
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    name: pip-audit python ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            installation/requirements.txt
+          architecture: x64
+      - name: 'Install requirements (standard or constraints ${{ matrix.python-version }})'
+        run: |
+          python -mvenv /tmp/PIPAUDIT
+          source /tmp/PIPAUDIT/bin/activate
+          pip install --upgrade pip wheel
+          pip install pip-audit
+#      - name: 'Freeze Python ${{ matrix.python-version }} constraints'
+#        run: |
+#          pip freeze > installation/constraints-${{ matrix.python-version }}.txt
+      - id: gen-cve-output
+        run: |
+          source /tmp/PIPAUDIT/bin/activate
+          set +e
+          if [ -f installation/constraints-${{ matrix.python-version }}.txt ] ; then
+            pip-audit --desc=on --progress-spinner=off -r installation/constraints-${{ matrix.python-version }}.txt --no-deps --disable-pip -f markdown -o /tmp/report-before.md
+            refreeze=$?
+          else
+            touch /tmp/report-before.md
+            refreeze=1
+          fi
+          set -e
+          
+          if [ "$refreeze" != 0 ] ; then
+            deactivate
+            python -mvenv /tmp/PIPFREEZE
+            source /tmp/PIPFREEZE/bin/activate
+            pip install --upgrade pip wheel
+            pip install -r installation/requirements.txt
+            pip freeze > installation/constraints-${{ matrix.python-version }}.txt
+            
+            # Re-audit the populated environment
+            deactivate
+            source /tmp/PIPAUDIT/bin/activate
+            set +e
+            pip-audit --desc=on --progress-spinner=off -r installation/constraints-${{ matrix.python-version }}.txt --no-deps --disable-pip -f markdown -o /tmp/report-after.md
+            auditres=$?
+            set -e
+            
+            if [ "$auditres" = 0 ] ; then
+              echo "# Fixed dependency issues for Python ${{ matrix.python-version }}" > audit-report-${{ matrix.python-version }}.md
+              cat /tmp/report-before.md >> audit-report-${{ matrix.python-version }}.md
+            else
+              # Time to emit the report
+              echo "# Dependency issues not solved for Python ${{ matrix.python-version }}" > audit-report-${{ matrix.python-version }}.md
+              cat /tmp/report-after.md >> audit-report-${{ matrix.python-version }}.md
+            fi
+            cat audit-report-${{ matrix.python-version }}.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: audit-${{ matrix.python-version }}
+          retention-days: 2
+          path: |
+            installation/constraints-${{ matrix.python-version }}.txt
+            audit-report-${{ matrix.python-version }}.md

@@ -30,8 +30,9 @@ import re
 import signal
 import socket
 import subprocess
-import time
 import sys
+import time
+import types
 
 from typing import (
     cast,
@@ -72,8 +73,8 @@ def analyse_list_of_processes(
     processor2corecpu: "Mapping[str, Tuple[str, str]]",
     recorded_pids: "MutableMapping[int, psutil.Process]",
     children_dicts: "MutableSequence[Tuple[Mapping[str, Any], str]]",
-    container_data: "Sequence[Tuple[str, float, str, int]]" = list(),
-    docker_following_pids: "Mapping[int, int]" = dict(),
+    container_data: "Sequence[Tuple[str, float, str, int]]" = (),
+    docker_following_pids: "Mapping[int, int]" = types.MappingProxyType({}),
 ) -> "Sequence[Tuple[int, int]]":
     new_pid_pairs: "MutableSequence[Tuple[int, int]]" = []
 
@@ -197,7 +198,6 @@ def analyse_list_of_processes(
                 del recorded_pids[child_pid_int]
         except Exception:
             logger.exception("FIXME: Unexpected exception, please report developers")
-            pass
 
     return new_pid_pairs
 
@@ -210,7 +210,7 @@ def execution_metrics_collector(
     match_docker: "bool" = False,
 ) -> "pathlib.Path":
     # See https://stackoverflow.com/a/4791612
-    pop = subprocess.Popen(cmdline, preexec_fn=os.setsid)
+    pop = subprocess.Popen(cmdline, preexec_fn=os.setsid)  # noqa: PLW1509
     # Just to be sure every descendant disappears
     atexit.register(
         os.killpg, os.getpgid(pop.pid), getattr(signal, "SIGKILL", signal.SIGTERM)
@@ -441,9 +441,9 @@ def process_metrics_collector(
 
                     break
                 except BaseException as be:
-                    if docker_errors_NotFound != BaseException and isinstance(  # noqa: E721
+                    if docker_errors_NotFound != BaseException and isinstance(
                         be, docker_errors_NotFound
-                    ):  # noqa: E721
+                    ):
                         tries -= 1
                         if tries == 0:
                             logger.warning(
@@ -477,7 +477,7 @@ def process_metrics_collector(
 
         if len(docker_following_pids) > 0:
             docker_following_pids_instances = []
-            for the_pid in docker_following_pids.keys():
+            for the_pid in docker_following_pids:
                 try:
                     the_pid_instance = (
                         recorded_pids[the_pid]

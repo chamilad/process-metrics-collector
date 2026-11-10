@@ -42,9 +42,9 @@ if TYPE_CHECKING:
 setupDir = os.path.dirname(__file__)
 sys.path.insert(0, setupDir)
 
-from treecript import __version__ as epmc_version  # noqa: E402
-from treecript import __author__ as epmc_author  # noqa: E402
-from treecript import __license__ as epmc_license  # noqa: E402
+from treecript import __version__ as epmc_version
+from treecript import __author__ as epmc_author
+from treecript import __license__ as epmc_license
 
 EGG_PAT = re.compile(r"#[^#]*egg=([^=&]+)")
 OTHER_REQ_PAT = re.compile(r"^-r\s+(.+)")

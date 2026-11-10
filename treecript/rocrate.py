@@ -37,7 +37,7 @@ if TYPE_CHECKING:
         Sequence,
         Set,
     )
-    
+
     import pandas.core.series
 
 from pandas import isna as pandas_isna
@@ -55,7 +55,7 @@ SCHEMA_ORG_NAMESPACE: "Final[str]" = "http://schema.org/"
 
 logger = logging.getLogger(__name__)
 
-TREECRIPT_SKIPPABLE = set(["Time","PID"])
+TREECRIPT_SKIPPABLE = set(["Time", "PID"])
 
 # UN/CEFACT Common Codes
 # See https://unece.org/sites/default/files/2023-10/rec20_Rev17e-2021.xlsx
@@ -63,7 +63,7 @@ TREECRIPT_SKIPPABLE = set(["Time","PID"])
 # at Rec 20 – Codes for Units of Measure Used in International Trade dropdown
 TREECRIPT_UNITS_MAPPING_OLD = {
     # "PID"
-    "Virt": "AD", # code for byte
+    "Virt": "AD",  # code for byte
     "Res": "AD",
     "CPU": "P1",  # code for percent
     "Memory": "P1",
@@ -91,6 +91,11 @@ TREECRIPT_UNITS_MAPPING_OLD = {
 
 TREECRIPT_UNITS_MAPPING: "Mapping[str, Mapping[str, Optional[str]]]" = {
     "PID": {
+        "propertyID": "https://w3id.org/ro/terms/treecript-metrics#pid",
+        "unitCode": None,
+        "additionalType": "Integer",
+    },
+    "PPID": {
         "propertyID": "https://w3id.org/ro/terms/treecript-metrics#pid",
         "unitCode": None,
         "additionalType": "Integer",
@@ -210,7 +215,7 @@ TREECRIPT_UNITS_MAPPING: "Mapping[str, Mapping[str, Optional[str]]]" = {
         "unitCode": "http://qudt.org/vocab/unit/BYTE",
         "additionalType": "Integer",
     },
-   "write_bytes": {
+    "write_bytes": {
         "propertyID": "https://w3id.org/ro/terms/treecript-metrics#write_bytes",
         "unitCode": "http://qudt.org/vocab/unit/BYTE",
         "additionalType": "Integer",
@@ -227,7 +232,10 @@ TREECRIPT_UNITS_MAPPING: "Mapping[str, Mapping[str, Optional[str]]]" = {
     },
 }
 
-def create_property_value(wrroc: "rocrate.rocrate.ROCrate", name: "str", value: "Any") -> "rocrate.model.contextentity.ContextEntity":
+
+def create_property_value(
+    wrroc: "rocrate.rocrate.ROCrate", name: "str", value: "Any"
+) -> "rocrate.model.contextentity.ContextEntity":
     metric = rocrate.model.contextentity.ContextEntity(
         wrroc,
         None,
@@ -238,7 +246,7 @@ def create_property_value(wrroc: "rocrate.rocrate.ROCrate", name: "str", value: 
         },
     )
     wrroc.add(metric)
-    
+
     mapping = TREECRIPT_UNITS_MAPPING.get(name)
     if mapping is not None:
         property_id = mapping["propertyID"]
@@ -253,15 +261,21 @@ def create_property_value(wrroc: "rocrate.rocrate.ROCrate", name: "str", value: 
             metric.append_to("additionalType", additional_type, compact=True)
 
     return metric
-    
 
-def activate_action(wrroc: "rocrate.rocrate.ROCrate", pid_row: "pandas.core.series.Series", skippable_metric: "Set[str]" = TREECRIPT_SKIPPABLE) -> "rocrate.model.contextentity.ContextEntity":
-    start_action = datetime.datetime.fromtimestamp(pid_row.create_time).astimezone().isoformat()
+
+def create_action(
+    wrroc: "rocrate.rocrate.ROCrate",
+    pid_row: "pandas.core.series.Series",
+    skippable_metric: "Set[str]" = TREECRIPT_SKIPPABLE,
+) -> "rocrate.model.contextentity.ContextEntity":
+    start_action = (
+        datetime.datetime.fromtimestamp(pid_row.create_time).astimezone().isoformat()
+    )
     action = rocrate.model.contextentity.ContextEntity(
         wrroc,
         "#" + pid_row.node,
         properties={
-            "@type": "ActivateAction",
+            "@type": "CreateAction",
             "name": pid_row.PID,
             "description": " ".join(pid_row.full_command),
             "startTime": start_action,
@@ -269,10 +283,11 @@ def activate_action(wrroc: "rocrate.rocrate.ROCrate", pid_row: "pandas.core.seri
         },
     )
     wrroc.add(action)
-    
+
     pid_metric = create_property_value(wrroc, "PID", pid_row.PID)
-    action.append_to("resourceUsage", pid_metric, compact=True)
-    
+    ppid_metric = create_property_value(wrroc, "PPID", pid_row.PPID)
+    action.append_to("resourceUsage", [pid_metric, ppid_metric], compact=True)
+
     organize_action = rocrate.model.contextentity.ContextEntity(
         wrroc,
         "#" + pid_row.node + "_organize",
@@ -282,7 +297,7 @@ def activate_action(wrroc: "rocrate.rocrate.ROCrate", pid_row: "pandas.core.seri
             "startTime": start_action,
         },
     )
-    
+
     wrroc.add(organize_action)
     organize_action.append_to("result", action, compact=True)
 
@@ -298,7 +313,7 @@ def activate_action(wrroc: "rocrate.rocrate.ROCrate", pid_row: "pandas.core.seri
     wrroc.add(software_application)
     organize_action.append_to("instrument", software_application, compact=True)
     action.append_to("instrument", software_application, compact=True)
-    
+
     # Try registering this control action with its parent (if exists)
     control_action = rocrate.model.contextentity.ContextEntity(
         wrroc,
@@ -322,15 +337,14 @@ def activate_action(wrroc: "rocrate.rocrate.ROCrate", pid_row: "pandas.core.seri
     howto_step.append_to("workExample", software_application, compact=True)
     control_action.append_to("instrument", howto_step, compact=True)
 
-
     if not pandas_isna(pid_row.parent):
         parent_organize_action = cast(
             "Optional[rocrate.model.contextentity.ContextEntity]",
-            wrroc.dereference("#" + pid_row.parent + "_organize")
+            wrroc.dereference("#" + pid_row.parent + "_organize"),
         )
         if parent_organize_action is not None:
             parent_organize_action.append_to("object", control_action, compact=True)
-    
+
     action_series = rocrate.model.contextentity.ContextEntity(
         wrroc,
         "#series_" + pid_row.node,
@@ -342,13 +356,13 @@ def activate_action(wrroc: "rocrate.rocrate.ROCrate", pid_row: "pandas.core.seri
     )
     wrroc.add(action_series)
     action.append_to("subjectOf", action_series, compact=True)
-    
+
     for index, row in pid_row.full_stats.iterrows():
         i_event = rocrate.model.contextentity.ContextEntity(
             wrroc,
             f"#event_{index}_{pid_row.node}",
             properties={
-                "@type": [ "InstantaneousEvent", "Event"],
+                "@type": ["InstantaneousEvent", "Event"],
                 "superEvent": action_series,
                 "source": action,
                 "timestamp": row.Time.to_pydatetime().astimezone().isoformat(),
@@ -356,34 +370,43 @@ def activate_action(wrroc: "rocrate.rocrate.ROCrate", pid_row: "pandas.core.seri
         )
         wrroc.add(i_event)
         action_series.append_to("subEvent", i_event, compact=True)
-        
+
         # Now, the metrics
         metrics = []
         for name, value in row.items():
             if name in skippable_metric:
                 continue
-            
+
             metric = create_property_value(wrroc, name, value)
             metrics.append(metric)
 
         if len(metrics) > 0:
             i_event.append_to("data", metrics, compact=True)
-    
+
     return action
 
-def describe_metrics_in_wrroc(wrroc: "rocrate.rocrate.ROCrate", series_dir: "pathlib.Path") -> "None":
-    reference_pid, pids , num_cpu_cores, sampling_period_seconds = metrics_parser(series_dir)
-    
+
+def describe_metrics_in_wrroc(
+    wrroc: "rocrate.rocrate.ROCrate", series_dir: "pathlib.Path"
+) -> "None":
+    reference_pid, pids, num_cpu_cores, sampling_period_seconds = metrics_parser(
+        series_dir
+    )
+
     for pid_tuple in pids.iterrows():
         pid_row = pid_tuple[1]
-        
-        action = activate_action(wrroc, pid_row)
+
+        action = create_action(wrroc, pid_row)
         # This is the root
         if pid_row.PID == reference_pid:
             wrroc.root_dataset.append_to("mentions", action, compact=True)
 
 
-def bundle_as_wrroc(series_dirs: "Sequence[pathlib.Path]", wrroc_path: "pathlib.Path", save_as_directory: "bool" = False) -> "pathlib.Path":
+def bundle_as_wrroc(
+    series_dirs: "Sequence[pathlib.Path]",
+    wrroc_path: "pathlib.Path",
+    save_as_directory: "bool" = False,
+) -> "pathlib.Path":
     """
     This method takes as input one directory full of gathered metrics
     about a process tree, and it generates a WRROC describing it properly.
@@ -392,7 +415,7 @@ def bundle_as_wrroc(series_dirs: "Sequence[pathlib.Path]", wrroc_path: "pathlib.
     # Next calls are setting up the pre-requisites for a WRROC
     wrroc = rocrate.rocrate.ROCrate(version="1.1")
     wrroc.metadata.extra_contexts.append(WRROC_CONTEXT)
-    
+
     # And the term needed by this WRROC metrics generator
     wrroc.metadata.extra_terms.update(
         {
@@ -446,7 +469,7 @@ def bundle_as_wrroc(series_dirs: "Sequence[pathlib.Path]", wrroc_path: "pathlib.
 
 def main() -> "None":
     parser = argparse.ArgumentParser()
-    
+
     meg = parser.add_mutually_exclusive_group()
     meg.add_argument(
         "-q",
@@ -494,6 +517,7 @@ def main() -> "None":
     series_dirs = list(map(pathlib.Path, args.series_dirs))
 
     bundle_as_wrroc(series_dirs, args.rocrate_dest, save_as_directory=args.as_directory)
+
 
 if __name__ == "__main__":
     main()

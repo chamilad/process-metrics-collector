@@ -6,7 +6,7 @@ using next classes.
 
 ```mermaid
 flowchart LR
-    A[ActivateAction]
+    A[CreateAction]
     P[PropertyValue]
     E[EventSeries]
     I["`InstantaneousEvent
@@ -16,7 +16,7 @@ Event`"]
     C[ControlAction]
     H[HowToStep]
 
-    click A href "https://schema.org/ActivateAction" "ActivateAction" _blank
+    click A href "https://schema.org/CreateAction" "CreateAction" _blank
     click P href "https://schema.org/PropertyValue" "PropertyValue" _blank
     click E href "https://schema.org/EventSeries" "EventSeries" _blank
     click I href "https://schema.org/InstantaneousEvent" "InstantaneousEvent" _blank
@@ -61,7 +61,12 @@ The description of the metrics using [PropertyValue](https://schema.org/Property
 ```json
     "PID": {
         "propertyID": "https://w3id.org/ro/terms/treecript-metrics#pid",
-        "unitCode": None,
+        "unitCode": null,
+        "additionalType": "Integer",
+    },
+    "PPID": {
+        "propertyID": "https://w3id.org/ro/terms/treecript-metrics#pid",
+        "unitCode": null,
         "additionalType": "Integer",
     },
     "Virt": {
@@ -146,22 +151,22 @@ The description of the metrics using [PropertyValue](https://schema.org/Property
     },
     "processor_ids": {
         "propertyID": "https://w3id.org/ro/terms/treecript-metrics#processor_ids",
-        "unitCode": None,
+        "unitCode": null,
         "additionalType": "String",
     },
     "core_ids": {
         "propertyID": "https://w3id.org/ro/terms/treecript-metrics#core_ids",
-        "unitCode": None,
+        "unitCode": null,
         "additionalType": "String",
     },
     "cpu_ids": {
         "propertyID": "https://w3id.org/ro/terms/treecript-metrics#cpu_ids",
-        "unitCode": None,
+        "unitCode": null,
         "additionalType": "String",
     },
     "process_status": {
         "propertyID": "https://w3id.org/ro/terms/treecript-metrics#process_status",
-        "unitCode": None,
+        "unitCode": null,
         "additionalType": "String",
     },
     "read_count": {
