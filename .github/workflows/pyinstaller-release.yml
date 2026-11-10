@@ -1,0 +1,51 @@
+name: Publish pyinstaller
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    name: Publish pyinstaller binaries
+    # This one is needed to generate binaries compatible with old distros
+    strategy:
+      matrix:
+        platform:
+          - runner: ubuntu-22.04
+            python-version: 3.9
+            arch: amd64
+          - runner: ubuntu-22.04-arm
+            python-version: 3.9
+            arch: arm64
+    runs-on: ${{ matrix.platform.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.platform.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            installation/requirements.txt
+      - name: 'Install treecript and pyinstaller (standard or constraints ${{ matrix.platform.python-version }})'
+        run: |
+          pip install --upgrade pip wheel
+          constraints_file="installation/constraints-${{ matrix.platform.python-version }}.txt"
+          if [ -f "$constraints_file" ] ; then
+            grep -vF git+ "$constraints_file" > "$constraints_file"-relaxed
+            pip install "treecript[core,docker] @ file://${PWD}" -c "$constraints_file"-relaxed
+          else
+            pip install "treecript[core,docker] @ file://${PWD}"
+          fi
+          pip install pyinstaller
+      - name: Compile binaries using pyinstaller
+        run: |
+          pyinstaller -F -n execution-metrics-collector "$(which execution-metrics-collector)"
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: dist/execution-metrics-collector
+          asset_name: execution-metrics-collector_${{ github.ref_name }}_${{ matrix.platform.arch }}
+          tag: ${{ github.ref }}
+          overwrite: true
